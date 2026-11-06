@@ -1,0 +1,36 @@
+name: Portal tests and local report
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: powershell
+    env:
+      REPORT_URL: http://127.0.0.1:8001/report
+
+    steps:
+      - name: Check out the pushed revision
+        uses: actions/checkout@v6
+
+      - name: Create Python environment
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+      - name: Run automated tests and generate JSON
+        id: tests
+        run: .\.venv\Scripts\python.exe run_tests.py
+
+      - name: Send completed report to local receiver
+        if: ${{ always() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
+        run: .\.venv\Scripts\python.exe send_report.py
