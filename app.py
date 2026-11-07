@@ -16,7 +16,7 @@ FIELDS = {
 def validate_submission(data):
     """Return an error message, or an empty string when the data is valid."""
     for field, label in FIELDS.items():
-        if not data[field]:
+        if field != "registration_number" and not data[field]:
             return f"{label} is required."
 
     url = data["submission_url"]
