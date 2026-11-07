@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Assignment Submission Portal Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 32px auto; padding: 0 16px; }
+        label { display: block; margin-top: 12px; }
+        input { display: block; box-sizing: border-box; width: 100%; padding: 8px; margin-top: 4px; font: inherit; }
+        button { margin-top: 16px; padding: 8px 16px; font: inherit; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border: 1px solid #bbb; text-align: left; overflow-wrap: anywhere; }
+        .error { color: #a00000; }
+        .success { color: #176b20; }
+    </style>
+</head>
+<body>
+    <h1>Assignment Submission Portal</h1>
+    <p>Demo: submissions are saved in this browser.</p>
+    <p id="message" role="status"></p>
+    <form id="submission-form" novalidate>
+        <label for="student_name">Student name</label>
+        <input id="student_name" name="student_name" required>
+        <label for="registration_number">Registration number</label>
+        <input id="registration_number" name="registration_number" required>
+        <label for="assignment_title">Assignment title</label>
+        <input id="assignment_title" name="assignment_title" required>
+        <label for="submission_url">Submission URL (http:// or https://)</label>
+        <input id="submission_url" name="submission_url" type="url" required>
+        <button type="submit">Submit assignment</button>
+    </form>
+    <h2>Saved submissions</h2>
+    <p id="empty">No submissions yet.</p>
+    <table id="submissions" hidden>
+        <thead><tr><th>Student</th><th>Registration number</th><th>Assignment</th><th>Submission URL</th></tr></thead>
+        <tbody id="submission-list"></tbody>
+    </table>
+    <script>
+        const fields = {
+            student_name: "Student name",
+            registration_number: "Registration number",
+            assignment_title: "Assignment title",
+            submission_url: "Submission URL"
+        };
+        const storageKey = "devops-labmid-014-demo";
+        const form = document.getElementById("submission-form");
+        const message = document.getElementById("message");
+        let submissions = [];
+
+        function validUrl(value) {
+            try {
+                const url = new URL(value);
+                return ["http:", "https:"].includes(url.protocol) && Boolean(url.hostname)
+                    && !/\s/.test(value) && !value.includes("\\");
+            } catch {
+                return false;
+            }
+        }
+
+        try {
+            const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
+            if (Array.isArray(saved)) {
+                submissions = saved.filter(row => row && Object.keys(fields).every(
+                    key => typeof row[key] === "string" && row[key].trim()
+                ) && validUrl(row.submission_url));
+            }
+        } catch {
+            submissions = [];
+        }
+
+        function render() {
+            const list = document.getElementById("submission-list");
+            list.replaceChildren();
+            document.getElementById("empty").hidden = submissions.length > 0;
+            document.getElementById("submissions").hidden = submissions.length === 0;
+            for (const submission of submissions) {
+                const row = document.createElement("tr");
+                for (const key of Object.keys(fields)) {
+                    const cell = document.createElement("td");
+                    if (key === "submission_url") {
+                        const link = document.createElement("a");
+                        link.href = submission[key];
+                        link.textContent = submission[key];
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                        cell.append(link);
+                    } else {
+                        cell.textContent = submission[key];
+                    }
+                    row.append(cell);
+                }
+                list.append(row);
+            }
+        }
+
+        form.addEventListener("submit", event => {
+            event.preventDefault();
+            const values = Object.fromEntries(new FormData(form).entries());
+            const data = Object.fromEntries(Object.keys(fields).map(key => [key, values[key].trim()]));
+            let error = "";
+            for (const [key, label] of Object.entries(fields)) {
+                if (!data[key]) { error = label + " is required."; break; }
+            }
+            if (!error && !validUrl(data.submission_url)) {
+                error = "Enter a valid http:// or https:// submission URL.";
+            }
+            if (!error) {
+                const updated = [data, ...submissions];
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(updated));
+                    submissions = updated;
+                    form.reset();
+                    render();
+                } catch {
+                    error = "Your browser could not save the submission. Check its storage settings.";
+                }
+            }
+            message.className = error ? "error" : "success";
+            message.textContent = error || "Submission saved.";
+        });
+        render();
+    </script>
+</body>
+</html>

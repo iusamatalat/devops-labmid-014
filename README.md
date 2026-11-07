@@ -1,9 +1,10 @@
 # DevOps Lab Mid - 014
 
 A minimal assignment submission portal built with Flask and SQLite.
-This checkpoint contains the application, three required tests, a GitHub Actions
+The project contains the application, three required tests, a GitHub Actions
 workflow, and automatic HTTP delivery of the actual test report to your computer.
-The GitHub Pages and email bonus tasks will be added in the next checkpoint.
+It also includes optional GitHub Pages deployment and email reporting. Enable
+each bonus only after its account configuration below is complete.
 
 ## Setup on Windows PowerShell
 
@@ -122,6 +123,88 @@ Capture evidence after each push before starting the next demonstration:
 Use the application defect only for the controlled failing demonstration and
 finish with the corrected code.
 
+The initial connection-refused error during report delivery does not demonstrate
+an application test failure: in that run the tests passed. If the deliberate
+application-defect and correction demonstration is omitted, that requirement
+remains unfulfilled even if the final workflow is green.
+
+## Enable the GitHub Pages bonus
+
+1. On GitHub open Settings > Pages. Under Build and deployment, select
+   GitHub Actions as the source.
+2. Open Settings > Secrets and variables > Actions > Variables. Add the repository
+   variable `ENABLE_PAGES` with the value `true` (lowercase).
+3. Push the update to `main`. After the test/reporting job succeeds, the separate
+   deployment job publishes the `demo` folder. Its environment displays the URL.
+
+For this repository the expected address after successful deployment is:
+
+https://iusamatalat.github.io/devops-labmid-014/
+
+GitHub Pages hosts the static browser demo. It stores submissions in that
+browser's localStorage. The local Flask application continues to use SQLite.
+The deployment job depends on a successful test/reporting job and a push to
+`main`. When that job fails, deployment is skipped and the published site is
+unchanged. If `ENABLE_PAGES` is absent, the optional deployment job is skipped.
+
+## Enable the email bonus
+
+1. Open Settings > Secrets and variables > Actions > Secrets, then add these
+   repository secrets using the SMTP account you control:
+
+| Secret | Value |
+| --- | --- |
+| `SMTP_HOST` | Your provider's SMTP hostname; Gmail example: `smtp.gmail.com` |
+| `SMTP_PORT` | `465` for SMTP over SSL; `587` for STARTTLS |
+| `SMTP_USER` | Your sender email address |
+| `SMTP_PASSWORD` | Your provider's SMTP credential or app password |
+| `EMAIL_TO` | The address that should receive the reports |
+
+2. For a personal Gmail account, enable 2-Step Verification and create an app
+   password at https://myaccount.google.com/apppasswords if available. Store its
+   16-character value without display spaces in `SMTP_PASSWORD`. Account policy
+   can make app passwords unavailable; another authenticated SMTP provider is
+   also supported. Keep credentials in GitHub Secrets, not in source files.
+3. Under the Actions Variables tab, add `EMAIL_ENABLED` with the value `true`.
+4. Push a commit or manually run the workflow. Confirm the email step succeeds
+   and the message arrives at `EMAIL_TO` with `test-report.json` attached.
+
+The email step runs after both passing and failing test stages through an
+`always()` condition. It contains the commit SHA, overall status, test counts,
+individual results, and the full JSON attachment. When `EMAIL_ENABLED` is absent,
+this optional step is skipped and no email is sent. Enabling it before the SMTP
+secrets are configured will cause an email configuration error.
+
+## Daily demonstration terminals
+
+Keep `receiver.py` and the self-hosted runner's `run.cmd` running in separate
+terminals before each push. A receiver health check is:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8001/health
+```
+
+The expected value is `receiver_status: ready`. This prevents the previously
+observed connection-refused error from a stopped receiver. Use a third terminal
+for Git commands. The report receiver archives each run and attempt separately.
+
+## Submission evidence
+
+Submit the repository URL and this README with screenshots of the portal and
+the three required demonstrations. For each demonstration, capture the workflow
+result and the automatically received local JSON with matching commit and run ID.
+For the bonuses, include the live Pages URL, deployment evidence, and received
+email evidence. Code configuration alone is not evidence that the external
+deployment or email delivery has completed.
+
+## References
+
+- Flask quickstart: https://flask.palletsprojects.com/en/stable/quickstart/
+- Self-hosted runners: https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/add-runners
+- GitHub Pages workflows: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
+- Python SMTP: https://docs.python.org/3.14/library/smtplib.html
+- Gmail app passwords: https://support.google.com/accounts/answer/185833
+
 ## How the application works
 
 - GET `/` reads submissions from SQLite and renders the page.
@@ -148,3 +231,5 @@ finish with the corrected code.
 | `send_report.py` | Sends the completed JSON report to the HTTP receiver |
 | `receiver.py` | Receives reports, saves the latest JSON, and archives runs |
 | `.github/workflows/ci.yml` | Tests each pushed revision and delivers reports |
+| `email_report.py` | Sends the actual results and JSON attachment over authenticated SMTP |
+| `demo/index.html` | Static browser demo published to GitHub Pages |

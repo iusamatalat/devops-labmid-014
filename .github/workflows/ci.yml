@@ -34,3 +34,46 @@ jobs:
       - name: Send completed report to local receiver
         if: ${{ always() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
         run: .\.venv\Scripts\python.exe send_report.py
+
+      - name: Email completed test report
+        if: ${{ always() && vars.EMAIL_ENABLED == 'true' && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure') }}
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: .\.venv\Scripts\python.exe email_report.py
+
+  deploy:
+    name: Publish static demo to GitHub Pages
+    needs: test
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success' && vars.ENABLE_PAGES == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@v6
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static demo
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: demo
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
